@@ -62,11 +62,11 @@ class FacebookApi extends SocialApi
         $post->setProvider($this->providerName);
         $post->setPostId($socialPost->id);
 
-        $userDetails = json_decode(file_get_contents("https://graph.facebook.com/". $socialPost->from->id));
+        $userDetails = json_decode(file_get_contents("https://graph.facebook.com/". $socialPost->from->id.'?access_token='.$this->api->getAccessToken()));
 
         $post->setAuthorUsername($userDetails->username);
         $post->setAuthorName($socialPost->from->name);
-        $post->setAuthorFile('https://graph.facebook.com/'. $socialPost->from->id .'/picture');
+        $post->setAuthorFile('https://graph.facebook.com/'. $socialPost->from->id .'/picture'.'?access_token='.$this->api->getAccessToken());
         $post->setHeadline(strip_tags($socialPost->message));
 
         $message = $this->getFormattedTextFromPost($socialPost);
@@ -78,7 +78,7 @@ class FacebookApi extends SocialApi
 
             // If there is an object_id, then the original file may be available, so check for that one
             if (isset($socialPost->object_id)) {
-                $imageDetails = json_decode(file_get_contents("https://graph.facebook.com/". $socialPost->object_id));
+                $imageDetails = json_decode(file_get_contents("https://graph.facebook.com/". $socialPost->object_id.'?access_token='.$this->api->getAccessToken()));
                 if (isset($imageDetails->images[0]->source)) {
                     $post->setFile($imageDetails->images[0]->source);
                 }
