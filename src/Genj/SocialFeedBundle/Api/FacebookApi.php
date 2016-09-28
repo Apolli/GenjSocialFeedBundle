@@ -3,7 +3,6 @@
 namespace Genj\SocialFeedBundle\Api;
 
 use Genj\SocialFeedBundle\Entity\Post;
-use Symfony\Component\Config\Definition\Exception\Exception;
 use Facebook\FacebookSession;
 use Facebook\Entities\AccessToken;
 use Facebook\FacebookRequest;
@@ -36,7 +35,9 @@ class FacebookApi extends SocialApi
     public function getUserPosts($username)
     {
         try {
-            $data = $this->requestGet('/'. $username .'/posts');
+            $parameters = array('fields' => 'message,link,from,full_picture,created_time,object_id');
+            $data = $this->requestGet('/'. $username .'/posts', $parameters);
+
         } catch (\Exception $ex) {
             echo $ex->getMessage();
 
@@ -62,29 +63,38 @@ class FacebookApi extends SocialApi
         $post->setProvider($this->providerName);
         $post->setPostId($socialPost->id);
 
-        $userDetails = json_decode(file_get_contents("https://graph.facebook.com/". $socialPost->from->id.'?access_token='.$this->api->getAccessToken()));
+        $parameters = array('fields' => 'username');
+        $rawUserDetails = $this->requestGet("/". $socialPost->from->id, $parameters);
 
-        $post->setAuthorUsername($userDetails->username);
+        $userDetails = $rawUserDetails->asArray();
+
+        if (empty($userDetails)) {
+            return false;
+        }
+
+        $post->setAuthorUsername($userDetails['username']);
         $post->setAuthorName($socialPost->from->name);
-        $post->setAuthorFile('https://graph.facebook.com/'. $socialPost->from->id .'/picture'.'?access_token='.$this->api->getAccessToken());
+        $post->setAuthorFile('https://graph.facebook.com/'. $socialPost->from->id .'/picture');
         $post->setHeadline(strip_tags($socialPost->message));
 
         $message = $this->getFormattedTextFromPost($socialPost);
         $post->setBody($message);
 
-        if (isset($socialPost->picture) && !empty($socialPost->picture)) {
+        if (isset($socialPost->full_picture) && !empty($socialPost->full_picture)) {
             // A picture is set, use the original url as a backup
-            $post->setFile($socialPost->picture);
+            $post->setFile($socialPost->full_picture);
 
             // If there is an object_id, then the original file may be available, so check for that one
             if (isset($socialPost->object_id)) {
-                $imageDetails = json_decode(file_get_contents("https://graph.facebook.com/". $socialPost->object_id.'?access_token='.$this->api->getAccessToken()));
-                if (isset($imageDetails->images[0]->source)) {
-                    $post->setFile($imageDetails->images[0]->source);
+                $rawImageDetails = $this->requestGet("/". $socialPost->object_id, array('fields' => 'images'));
+                $imageDetails = $rawImageDetails->asArray();
+
+                if (isset($imageDetails['images'][0]->source)) {
+                    $post->setFile($imageDetails['images'][0]->source);
                 }
             } else {
                 // Check if it is an external image, if so, use the original one.
-                $pictureUrlData = parse_url($socialPost->picture);
+                $pictureUrlData = parse_url($socialPost->full_picture);
                 if (preg_match('#^fbexternal#', $pictureUrlData['host']) === 1) {
                     parse_str($pictureUrlData['query'], $pictureUrlQueryData);
                     if (isset($pictureUrlQueryData['url'])) {
@@ -119,7 +129,7 @@ class FacebookApi extends SocialApi
     protected function requestGet($method, $parameters = array())
     {
         try {
-            $response = (new FacebookRequest($this->api, 'GET', $method, $parameters))->execute();
+            $response = (new FacebookRequest($this->api, 'GET', $method, $parameters, 'v2.4'))->execute();
 
             return $response->getGraphObject();
         } catch (\Exception $ex) {
