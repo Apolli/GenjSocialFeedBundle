@@ -31,14 +31,14 @@
         "vich/uploader-bundle": "~0",
         "themattharris/tmhoauth": "*",
         "facebook/php-sdk-v4" : "4.0.*",
-        "php-instagram-api/php-instagram-api": "dev-master as 1.0.0"
+        "php-instagram-api/php-instagram-api": "dev-master"
     },
 
     "config": {
         "preferred-install": "dist"
     },
 
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
 
     "autoload": {
         "psr-0": {
